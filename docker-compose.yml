@@ -1,0 +1,68 @@
+name: swingtrade
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: swing
+      POSTGRES_PASSWORD: swing
+      POSTGRES_DB: swingtrade
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U swing -d swingtrade"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    environment: &backend-env
+      DATABASE_URL: postgresql+asyncpg://swing:swing@db:5432/swingtrade
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-change-me}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      DATA_PROVIDER: ${DATA_PROVIDER:-sample}
+      POLYGON_API_KEY: ${POLYGON_API_KEY:-}
+      POLYGON_RPM: ${POLYGON_RPM:-5}
+      ALPACA_API_KEY: ${ALPACA_API_KEY:-}
+      ALPACA_API_SECRET: ${ALPACA_API_SECRET:-}
+      AI_PROVIDER: ${AI_PROVIDER:-sample}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      SCAN_INTERVAL_SECONDS: ${SCAN_INTERVAL_SECONDS:-60}
+      HISTORY_DAYS: ${HISTORY_DAYS:-504}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: ./backend
+    command: arq app.workers.worker.WorkerSettings
+    environment: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
