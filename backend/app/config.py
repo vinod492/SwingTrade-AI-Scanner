@@ -6,6 +6,7 @@ Checks both the repo-root .env (local dev convention) and a backend-local
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _ROOT_ENV = Path(__file__).resolve().parents[2] / ".env"
@@ -38,6 +39,17 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     ai_cache_ttl_seconds: int = 3600
+
+    @field_validator("database_url")
+    @classmethod
+    def _normalize_db_url(cls, v: str) -> str:
+        """Hosts like Render/Railway/Heroku hand out postgres:// URLs; the
+        async engine needs the asyncpg dialect spelled out."""
+        if v.startswith("postgres://"):
+            v = "postgresql://" + v[len("postgres://"):]
+        if v.startswith("postgresql://"):
+            v = "postgresql+asyncpg://" + v[len("postgresql://"):]
+        return v
 
     # Scanner behaviour
     scan_interval_seconds: int = 60

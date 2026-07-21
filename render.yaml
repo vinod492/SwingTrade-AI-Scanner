@@ -1,0 +1,54 @@
+# Render blueprint — deploys the whole backend engine in one click:
+# API + scan worker + PostgreSQL + Redis. Pair with Netlify for the frontend
+# (see DEPLOY.md), or skip Netlify and also host the frontend here.
+
+databases:
+  - name: swingtrade-db
+    plan: basic-256mb
+    databaseName: swingtrade
+    user: swing
+
+services:
+  - type: keyvalue # Redis-compatible
+    name: swingtrade-redis
+    plan: free
+    ipAllowList: [] # internal connections only
+
+  - type: web
+    name: swingtrade-api
+    runtime: docker
+    rootDir: backend
+    plan: starter
+    healthCheckPath: /api/v1/health
+    envVars: &backend-env
+      - key: DATABASE_URL
+        fromDatabase:
+          name: swingtrade-db
+          property: connectionString # postgres:// — rewritten by app to asyncpg? see DEPLOY.md note
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: swingtrade-redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        sync: false # paste one: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+      - key: DATA_PROVIDER
+        value: polygon
+      - key: POLYGON_API_KEY
+        sync: false # paste your Massive key in the Render dashboard
+      - key: POLYGON_RPM
+        value: "5"
+      - key: AI_PROVIDER
+        value: sample
+      - key: OPENAI_API_KEY
+        sync: false
+
+  - type: worker
+    name: swingtrade-worker
+    runtime: docker
+    rootDir: backend
+    dockerCommand: arq app.workers.worker.WorkerSettings
+    plan: starter
+    envVars: *backend-env
