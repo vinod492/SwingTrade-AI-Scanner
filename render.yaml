@@ -1,6 +1,6 @@
 # Render blueprint — deploys the whole backend engine in one click:
-# API + scan worker + PostgreSQL + Redis. Pair with Netlify for the frontend
-# (see DEPLOY.md), or skip Netlify and also host the frontend here.
+# API + scan worker + PostgreSQL + Redis. Pair with any static host for the
+# frontend (see DEPLOY.md), or also host the frontend here.
 
 databases:
   - name: swingtrade-db

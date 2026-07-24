@@ -34,9 +34,9 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
 
     const connect = () => {
       // Same-origin by default (vite/nginx proxy). When the frontend is hosted
-      // apart from the backend (e.g. Netlify), set VITE_WS_URL to the backend's
-      // websocket URL, e.g. wss://swingtrade-api.up.railway.app/ws — Netlify's
-      // proxy can't carry websockets.
+      // apart from the backend, set VITE_WS_URL to the backend's websocket
+      // URL, e.g. wss://swingtrade-api.up.railway.app/ws — some static-site
+      // hosts' proxies can't carry websockets.
       const override = import.meta.env.VITE_WS_URL as string | undefined;
       const proto = window.location.protocol === "https:" ? "wss" : "ws";
       ws = new WebSocket(override || `${proto}://${window.location.host}/ws`);

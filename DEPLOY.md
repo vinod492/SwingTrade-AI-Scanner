@@ -7,10 +7,10 @@
 ## Current live setup (as of 2026-07-24)
 
 The app is **live today** at **https://swingscanner.app**, running on a single
-DigitalOcean droplet — not the Netlify/Render split this file used to describe.
-That split still exists in the repo ([netlify.toml](netlify.toml),
-[render.yaml](render.yaml)) as the documented upgrade path for if the app ever
-needs to scale beyond personal use — see
+DigitalOcean droplet — not the Render split this file used to describe.
+That split still exists in the repo ([render.yaml](render.yaml)) as the
+documented upgrade path for if the app ever needs to scale beyond personal
+use — see
 [docs/plans/2026-07-23-feat-phased-personal-to-public-hosting-plan.md](docs/plans/2026-07-23-feat-phased-personal-to-public-hosting-plan.md).
 For now, everything below is what's actually running.
 
@@ -108,5 +108,6 @@ Don't re-architect by hand — the repo already has the config for it. See the
 Phase 2 section of
 [docs/plans/2026-07-23-feat-phased-personal-to-public-hosting-plan.md](docs/plans/2026-07-23-feat-phased-personal-to-public-hosting-plan.md):
 point Render at the same repo (it reads [render.yaml](render.yaml)
-unmodified), and swap the frontend to Netlify or keep it on the droplet — the
-application code doesn't change either way, only where it's hosted.
+unmodified), and either host the frontend on a static site host of your
+choice or keep it on the droplet — the application code doesn't change
+either way, only where it's hosted.
