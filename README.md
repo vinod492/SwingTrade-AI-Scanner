@@ -10,6 +10,10 @@ backtester, watchlists with P/L tracking, and user accounts.
 
 ![stack](https://img.shields.io/badge/stack-FastAPI%20·%20PostgreSQL%20·%20Redis%20·%20arq%20·%20React%20·%20TypeScript%20·%20Tailwind-1c2530)
 
+> New here or non-technical? [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains
+> what this app does and how it's built in plain language. For deployment and
+> update instructions, see [DEPLOY.md](DEPLOY.md).
+
 ## Feature tour
 
 | Feature | Where |

@@ -1,84 +1,112 @@
-# Putting SwingTrade on the internet (Netlify + Render)
+# Deploying and updating SwingTrade AI Scanner
 
-The app has two halves:
+> Looking for what the app actually does? See [README.md](README.md) for the
+> feature tour, or [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a
+> plain-language walkthrough of how it's built.
 
-1. **The website** (what you see and click) → hosted on **Netlify**. Free.
-2. **The engine** (API server + scanner robot + database + Redis) → hosted on
-   **Render**, because it has to run 24/7 and Netlify can't do that.
-   Roughly $14/month on starter plans (two always-on services).
+## Current live setup (as of 2026-07-24)
 
-Total hands-on time: about 20 minutes, all clicking — the config files in this
-repo do the heavy lifting.
+The app is **live today** at **https://swingscanner.app**, running on a single
+DigitalOcean droplet — not the Netlify/Render split this file used to describe.
+That split still exists in the repo ([netlify.toml](netlify.toml),
+[render.yaml](render.yaml)) as the documented upgrade path for if the app ever
+needs to scale beyond personal use — see
+[docs/plans/2026-07-23-feat-phased-personal-to-public-hosting-plan.md](docs/plans/2026-07-23-feat-phased-personal-to-public-hosting-plan.md).
+For now, everything below is what's actually running.
 
-## Step 0 — put the code on GitHub (one time)
+```
+Cloudflare (DNS + free HTTPS certificate, in front of everything)
+        │
+        ▼
+DigitalOcean droplet (157.245.89.255)
+        │
+        ▼
+  Caddy (reverse proxy, listens on 80/443)
+        │
+        ├── swingscanner.app        → docker container "frontend" (port 8080)
+        └── api.swingscanner.app    → docker container "api" (port 8000)
+                │
+                ▼
+        docker compose stack in /opt/swingtrade:
+          frontend (nginx serving the built React app,
+                    proxies its own /api and /ws to the api container)
+          api      (FastAPI)
+          worker   (arq — runs the scan cycle every 60s)
+          db       (PostgreSQL)
+          redis    (cache + job queue + pub/sub for live alerts)
+```
 
-Create an empty repository on github.com, then from the project folder:
+In practice the React app talks to `/api` and `/ws` on its own origin
+(`swingscanner.app`) — nginx inside the `frontend` container forwards those
+internally to the `api` container over the Docker network
+([frontend/nginx.conf](frontend/nginx.conf)). The `api.swingscanner.app` Caddy
+route exists for direct API/docs access but isn't what the website itself uses.
+
+Secrets (`POLYGON_API_KEY`, `SECRET_KEY`, `ENCRYPTION_KEY`, etc.) live only in
+`/opt/swingtrade/.env` **on the droplet** — never committed to git.
+
+**Known gap:** `www.swingscanner.app` has no DNS record yet, so it 404s/fails
+to resolve. Only the bare `swingscanner.app` domain currently works. Fixing
+this just needs a `www` DNS record (or redirect rule) added wherever the
+domain's DNS is managed — flagged here, not yet done.
+
+## How to make an update
+
+1. **Change code locally**, in this repo, and test it.
+2. **Commit and push to GitHub:**
+   ```bash
+   git add -A && git commit -m "describe the change"
+   git push origin main
+   ```
+3. **Deploy to the droplet** — pull the new code and rebuild the affected
+   containers:
+   ```bash
+   ssh -i ~/.ssh/do_droplet root@157.245.89.255 \
+     "cd /opt/swingtrade && git pull && docker compose up -d --build"
+   ```
+   Rebuilding everything (`--build` with no service names) is safest but
+   slower; if you only touched the backend, `docker compose up -d --build api
+   worker` is faster and skips rebuilding the frontend image.
+4. **Verify:**
+   ```bash
+   curl -s https://swingscanner.app/api/v1/health
+   ```
+   Should return `{"status":"ok", ...}`. For anything more, check logs:
+   ```bash
+   ssh -i ~/.ssh/do_droplet root@157.245.89.255 \
+     "cd /opt/swingtrade && docker compose logs --tail 50 api worker"
+   ```
+
+### Changing secrets / provider settings
+
+`.env` isn't in git, so a new API key, a changed `DATA_PROVIDER`, etc. needs a
+direct edit on the droplet, then a restart of the services that read it:
 
 ```bash
-cd ~/Documents/swingtrade-ai-scanner
-git remote add origin https://github.com/YOUR-USERNAME/swingtrade-ai-scanner.git
-git push -u origin main
+ssh -i ~/.ssh/do_droplet root@157.245.89.255
+cd /opt/swingtrade
+nano .env                                  # edit the value(s)
+docker compose up -d --build api worker    # restart with the new values
 ```
 
-Your `.env` (with your Massive key) is gitignored and will NOT be uploaded —
-that's intentional. Keys are pasted into the hosting dashboards instead.
+### Database migrations
 
-## Step 1 — deploy the engine on Render (~10 min)
+If a change adds/modifies a database model, add an Alembic migration in
+`backend/alembic/`. The `api` container runs `alembic upgrade` automatically
+on startup ([docker-compose.yml](docker-compose.yml)), so migrations apply the
+moment the container restarts — no manual step needed on the droplet.
 
-1. Go to https://render.com → sign up / sign in with GitHub.
-2. Click **New → Blueprint** and pick your `swingtrade-ai-scanner` repo.
-3. Render reads [render.yaml](render.yaml) and offers to create: the API, the
-   worker, a PostgreSQL database and a Redis instance. Approve it.
-4. It will ask for the two secrets marked "paste":
-   - `POLYGON_API_KEY` — your Massive key (rotate it first in the Massive
-     dashboard if you haven't since it was shared in chat)
-   - `ENCRYPTION_KEY` — run this locally and paste the output:
-     `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
-5. Deploy. When it's green, copy the API's public URL — it looks like
-   `https://swingtrade-api.onrender.com`. Check it works:
-   open `https://swingtrade-api.onrender.com/api/v1/health`.
+## Costs
 
-No keys at all? Set `DATA_PROVIDER` to `sample` in the Render dashboard and the
-engine runs on synthetic demo data.
+- DigitalOcean droplet: ~$6/month (this is the only recurring cost right now).
+- Cloudflare: free plan (DNS + TLS).
+- Massive/Polygon market data: free tier (5 requests/min, end-of-day data).
 
-## Step 2 — deploy the website on Netlify (~5 min)
+## If this needs to scale beyond personal use
 
-1. First, in [netlify.toml](netlify.toml) (repo root), replace
-   `YOUR-BACKEND-URL` with the Render URL from step 1, then:
-   `git add netlify.toml && git commit -m "point netlify at backend" && git push`
-2. Go to https://netlify.com → sign up / sign in with GitHub.
-3. **Add new site → Import an existing project** → pick the repo.
-   Build settings are auto-detected from `netlify.toml` — accept them.
-4. Before the first deploy, add one environment variable
-   (Site settings → Environment variables):
-   - `VITE_WS_URL` = `wss://swingtrade-api.onrender.com/ws`
-     (your Render URL with `wss://` in front and `/ws` at the end —
-     live-update pushes connect straight to the engine because Netlify's
-     proxy can't carry websockets)
-5. Deploy. Your site is live at `https://something.netlify.app` —
-   rename it or attach a custom domain in Netlify's settings.
-
-## How it fits together
-
-```
-you → https://yoursite.netlify.app        (Netlify: the React app)
-        ├── /api/* proxied to Render      (scanner data, auth, backtests)
-        └── wss://…onrender.com/ws        (live prices & alert toasts)
-Render: FastAPI api + arq worker + PostgreSQL + Redis (the 24/7 engine)
-```
-
-## Costs & alternatives
-
-- **Render**: API + worker on `starter` ≈ $7 each/month; Postgres basic ≈ $6;
-  Redis free tier. You can drop the API to the free plan, but it sleeps after
-  idle periods (first request takes ~1 min to wake); the worker has no free tier.
-- **Railway.app**: same architecture works there (~$5/month usage-based);
-  create four services from the repo by hand — API (`backend/Dockerfile`),
-  worker (same image, command `arq app.workers.worker.WorkerSettings`),
-  plus their Postgres and Redis plugins.
-- **Any VPS with Docker**: `docker compose up -d` runs everything on one box —
-  cheapest at ~$5/month, but you manage it yourself.
-
-## Updating the live site
-
-Just push to `main` — Netlify and Render both redeploy automatically.
+Don't re-architect by hand — the repo already has the config for it. See the
+Phase 2 section of
+[docs/plans/2026-07-23-feat-phased-personal-to-public-hosting-plan.md](docs/plans/2026-07-23-feat-phased-personal-to-public-hosting-plan.md):
+point Render at the same repo (it reads [render.yaml](render.yaml)
+unmodified), and swap the frontend to Netlify or keep it on the droplet — the
+application code doesn't change either way, only where it's hosted.
