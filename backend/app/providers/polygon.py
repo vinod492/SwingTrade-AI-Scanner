@@ -56,14 +56,16 @@ class PolygonProvider(MarketDataProvider):
     def __init__(self) -> None:
         settings = get_settings()
         self._key = settings.polygon_api_key
-        self._client = httpx.AsyncClient(base_url=settings.polygon_base_url, timeout=30)
+        self._client = httpx.AsyncClient(
+            base_url=settings.polygon_base_url, timeout=30,
+            headers={"Authorization": f"Bearer {self._key}"},
+        )
         self._limiter = RateLimiter(settings.polygon_rpm)
         self._caps: Capabilities | None = None
         self._grouped_cache: tuple[str, dict[str, dict]] | None = None  # (date, {ticker: row})
         self._grouped_unavailable = False  # some tiers 403 the grouped endpoint entirely
 
     async def _get(self, path: str, **params) -> dict | None:
-        params["apiKey"] = self._key
         for attempt in range(4):
             await self._limiter.acquire()
             try:
