@@ -28,7 +28,11 @@ function toTime(ts: string): UTCTimestamp {
   return Math.floor(new Date(ts).getTime() / 1000) as UTCTimestamp;
 }
 
-export default function ChartPanel({ candles, row }: { candles: Candle[]; row: ScannerRow | null }) {
+export default function ChartPanel({
+  candles, row, height = 420, compact = false,
+}: {
+  candles: Candle[]; row: ScannerRow | null; height?: number; compact?: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,7 +40,7 @@ export default function ChartPanel({ candles, row }: { candles: Candle[]; row: S
     if (!el || candles.length === 0) return;
 
     const chart = createChart(el, {
-      height: 420,
+      height,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
         textColor: INK.text,
@@ -69,19 +73,21 @@ export default function ChartPanel({ candles, row }: { candles: Candle[]; row: S
       })),
     );
 
-    const volume = chart.addSeries(HistogramSeries, {
-      priceScaleId: "vol",
-      priceFormat: { type: "volume" },
-      color: "rgba(70, 86, 106, 0.6)",
-    });
-    chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
-    volume.setData(
-      candles.map((c) => ({
-        time: toTime(c.ts),
-        value: c.volume,
-        color: c.close >= c.open ? "rgba(56,224,125,0.35)" : "rgba(244,86,78,0.35)",
-      })),
-    );
+    if (!compact) {
+      const volume = chart.addSeries(HistogramSeries, {
+        priceScaleId: "vol",
+        priceFormat: { type: "volume" },
+        color: "rgba(70, 86, 106, 0.6)",
+      });
+      chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+      volume.setData(
+        candles.map((c) => ({
+          time: toTime(c.ts),
+          value: c.volume,
+          color: c.close >= c.open ? "rgba(56,224,125,0.35)" : "rgba(244,86,78,0.35)",
+        })),
+      );
+    }
 
     const addLine = (key: "ema20" | "ema50" | "ema200", color: string, width: 1 | 2) => {
       const data = candles
@@ -120,9 +126,11 @@ export default function ChartPanel({ candles, row }: { candles: Candle[]; row: S
         axisLabelVisible: true,
       });
     };
-    priceLine(row?.entry ?? null, INK.ema20, "ENTRY");
-    priceLine(row?.stop ?? null, INK.down, "STOP");
-    priceLine(row?.target ?? null, INK.up, "TARGET");
+    if (!compact) {
+      priceLine(row?.entry ?? null, INK.ema20, "ENTRY");
+      priceLine(row?.stop ?? null, INK.down, "STOP");
+      priceLine(row?.target ?? null, INK.up, "TARGET");
+    }
 
     chart.timeScale().setVisibleLogicalRange({
       from: Math.max(0, candles.length - 130), to: candles.length + 3,
@@ -134,17 +142,19 @@ export default function ChartPanel({ candles, row }: { candles: Candle[]; row: S
       observer.disconnect();
       chart.remove();
     };
-  }, [candles, row]);
+  }, [candles, row, height, compact]);
 
   return (
     <div>
       <div ref={ref} className="w-full" />
-      <div className="mt-2 flex flex-wrap gap-4 px-1 text-[11px] text-[var(--color-ink-300)]">
-        <span><span style={{ color: INK.ema20 }}>—</span> EMA 20</span>
-        <span><span style={{ color: INK.ema50 }}>—</span> EMA 50</span>
-        <span><span style={{ color: INK.ema200 }}>—</span> EMA 200</span>
-        <span><span style={{ color: INK.bb }}>┄</span> Bollinger 20,2</span>
-      </div>
+      {!compact && (
+        <div className="mt-2 flex flex-wrap gap-4 px-1 text-[11px] text-[var(--color-ink-300)]">
+          <span><span style={{ color: INK.ema20 }}>—</span> EMA 20</span>
+          <span><span style={{ color: INK.ema50 }}>—</span> EMA 50</span>
+          <span><span style={{ color: INK.ema200 }}>—</span> EMA 200</span>
+          <span><span style={{ color: INK.bb }}>┄</span> Bollinger 20,2</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { useLive } from "../state/live";
 const NAV = [
   { to: "/", label: "Scanner", exact: true },
   { to: "/ideas", label: "Trade Ideas" },
+  { to: "/dashboard", label: "Dashboard" },
   { to: "/alerts", label: "Alerts" },
   { to: "/watchlist", label: "Watchlist" },
   { to: "/backtest", label: "Backtest" },
