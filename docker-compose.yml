@@ -3,6 +3,7 @@ name: swingtrade
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: swing
       POSTGRES_PASSWORD: swing
@@ -17,6 +18,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -25,6 +27,7 @@ services:
 
   api:
     build: ./backend
+    restart: unless-stopped
     environment: &backend-env
       DATABASE_URL: postgresql+asyncpg://swing:swing@db:5432/swingtrade
       REDIS_URL: redis://redis:6379/0
@@ -49,6 +52,7 @@ services:
 
   worker:
     build: ./backend
+    restart: unless-stopped
     command: arq app.workers.worker.WorkerSettings
     environment: *backend-env
     depends_on:
@@ -59,6 +63,7 @@ services:
 
   frontend:
     build: ./frontend
+    restart: unless-stopped
     depends_on:
       - api
     ports:
