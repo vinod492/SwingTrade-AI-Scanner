@@ -9,7 +9,7 @@ writes are batched.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,12 +56,19 @@ async def backfill_history(
     stale, replacing their stored 1d candles. Returns symbols updated."""
     settings = get_settings()
     status = await history_status(session)
-    stale_before = datetime.now(timezone.utc) - timedelta(hours=20)
+    today = datetime.now(timezone.utc).date()
 
     def needs(sym: Symbol) -> bool:
         count, latest = status.get(sym.id, (0, None))
         latest = _as_utc(latest)
-        return count < MIN_HISTORY_BARS or latest is None or latest < stale_before
+        if count < MIN_HISTORY_BARS or latest is None:
+            return True
+        # EOD data always lags by one trading day, so comparing against a
+        # fixed wall-clock window (e.g. 20h) would mark it "stale" forever —
+        # a candle dated yesterday is never within 20h of "now" this
+        # afternoon. Compare calendar-day gap instead: a 1-day-old bar is
+        # the freshest obtainable and shouldn't be re-fetched every cycle.
+        return (today - latest.date()).days > 1
 
     candidates = sorted(
         (s for s in symbols if needs(s)),
