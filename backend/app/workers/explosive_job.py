@@ -110,7 +110,7 @@ async def compute_and_store_explosive(
             catalyst_pts=bd.catalyst, squeeze_pts=bd.squeeze, float_pts=bd.float_amp,
             iv_pts=bd.iv, volume_pts=bd.volume, catalyst_kind=bd.catalyst_kind,
             catalyst_headline=bd.catalyst_headline, catalyst_date=bd.catalyst_date,
-            reasons=bd.reasons,
+            catalyst_verified=bd.catalyst_verified, reasons=bd.reasons,
         ))
         rows.append({
             "symbol_id": sym.id, "ticker": sym.ticker, "name": sym.name, "sector": sym.sector,
@@ -119,6 +119,7 @@ async def compute_and_store_explosive(
             "iv_pts": bd.iv, "volume_pts": bd.volume,
             "catalyst_kind": bd.catalyst_kind, "catalyst_headline": bd.catalyst_headline,
             "catalyst_date": bd.catalyst_date.isoformat() if bd.catalyst_date else None,
+            "catalyst_verified": bd.catalyst_verified,
             "days_to_catalyst": bd.days_to_catalyst,
             "short_pct_float": si.short_pct_float if si else None,
             "days_to_cover": si.days_to_cover if si else None,

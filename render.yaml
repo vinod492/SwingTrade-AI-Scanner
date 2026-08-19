@@ -44,6 +44,8 @@ services:
         value: sample
       - key: OPENAI_API_KEY
         sync: false
+      - key: FINNHUB_API_KEY
+        sync: false # optional: free key from finnhub.io for real Catalyst Radar earnings dates
 
   - type: worker
     name: swingtrade-worker

@@ -45,9 +45,22 @@ function RadarCard({ row, expanded, onToggle }: {
             </Link>
             <span className="truncate text-[11px] text-[var(--color-ink-300)]">{row.name}</span>
             {row.catalyst_kind && (
-              <span className="label-caps !text-[10px] !text-[var(--color-amber-flag)]">
-                {KIND_LABELS[row.catalyst_kind] ?? row.catalyst_kind} · {daysLabel(row.days_to_catalyst)}
-              </span>
+              <>
+                <span className="label-caps !text-[10px] !text-[var(--color-amber-flag)]">
+                  {KIND_LABELS[row.catalyst_kind] ?? row.catalyst_kind} · {daysLabel(row.days_to_catalyst)}
+                </span>
+                {row.catalyst_verified ? (
+                  <span title="Date confirmed by a real calendar source"
+                    className="inline-flex items-center gap-1 rounded-sm bg-[color-mix(in_srgb,var(--color-gain-500)_15%,transparent)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-gain-500)]">
+                    ✓ confirmed date
+                  </span>
+                ) : (
+                  <span title="Simulated date — not a real calendar source, for demo purposes"
+                    className="inline-flex items-center gap-1 rounded-sm bg-[color-mix(in_srgb,var(--color-ink-300)_15%,transparent)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-ink-300)]">
+                    ≈ projected, unconfirmed
+                  </span>
+                )}
+              </>
             )}
           </div>
           <p className="mt-1 truncate text-xs text-[var(--color-ink-300)]">
@@ -147,6 +160,13 @@ export default function ExplosiveRadarPage() {
         options pricing in volatility, or volume already building. Real binary catalysts — the kind
         that produced Moderna's 90%+ single-day jump on its 2026-08-19 melanoma-trial results — can
         gap up <em>or</em> down on the news. Nothing here predicts the outcome.
+        <br className="hidden sm:block" />
+        <span className="mt-2 block text-[12px] text-[var(--color-ink-300)]">
+          <span className="text-[var(--color-gain-500)]">✓ confirmed date</span> = a real earnings
+          calendar source. <span className="text-[var(--color-ink-300)]">≈ projected, unconfirmed</span>{" "}
+          = a simulated placeholder date, not a real one — short interest and trial/FDA dates are
+          currently always in this category. Only trust rows marked confirmed as having a real date.
+        </span>
       </div>
 
       <div className="rise rise-2 flex flex-wrap items-center gap-2">

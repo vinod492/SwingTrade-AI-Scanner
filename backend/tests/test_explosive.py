@@ -15,11 +15,12 @@ class FakeCatalyst:
     headline: str = ""
     sentiment: float | None = None
     event_date: datetime | None = None
+    verified: bool = False
 
 
-def trial_in(days: int, kind: str = "trial_readout") -> list[FakeCatalyst]:
+def trial_in(days: int, kind: str = "trial_readout", verified: bool = False) -> list[FakeCatalyst]:
     return [FakeCatalyst(ticker="X", kind=kind, headline="readout",
-                         event_date=NOW + timedelta(days=days))]
+                         event_date=NOW + timedelta(days=days), verified=verified)]
 
 
 def score(catalysts=(), short_pct_float=None, days_to_cover=None, iv_rank=None,
@@ -66,6 +67,20 @@ class TestCatalystProximity:
         bd = score(cats)
         assert bd.days_to_catalyst == 4
         assert bd.catalyst_kind == "fda_decision"
+
+    def test_unverified_catalyst_flagged_unverified(self):
+        bd = score(trial_in(2, verified=False))
+        assert bd.catalyst_verified is False
+        assert any("unconfirmed" in r.lower() for r in bd.reasons)
+
+    def test_verified_catalyst_flagged_verified(self):
+        bd = score(trial_in(2, "earnings", verified=True))
+        assert bd.catalyst_verified is True
+        assert any("confirmed date" in r.lower() and "unconfirmed" not in r.lower()
+                   for r in bd.reasons)
+
+    def test_no_catalyst_is_not_verified(self):
+        assert score().catalyst_verified is False
 
 
 class TestSqueezeSetup:

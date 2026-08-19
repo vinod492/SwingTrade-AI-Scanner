@@ -37,6 +37,7 @@ async def symbol_detail(ticker: str, db: AsyncSession = Depends(get_db)):
         catalysts=[{
             "kind": c.kind, "headline": c.headline, "sentiment": c.sentiment,
             "event_date": c.event_date.isoformat() if c.event_date else None,
+            "verified": c.verified,
         } for c in catalysts],
     )
 

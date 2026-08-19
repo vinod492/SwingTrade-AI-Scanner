@@ -239,6 +239,8 @@ async def refresh_catalysts(
         select(func.count(Catalyst.id)).where(Catalyst.created_at >= today_start)
     )).scalar()
     if not already:
+        from app.providers.finnhub import fetch_earnings_calendar
+
         tickers = [s.ticker for s in symbols]
         cats: list[CatalystInfo] = []
         if caps.catalysts:
@@ -247,11 +249,23 @@ async def refresh_catalysts(
             cats.extend(await sample.fetch_catalysts([t for t in tickers if t not in covered]))
         else:
             cats.extend(await sample.fetch_catalysts(tickers))
+
+        # Real earnings dates, independent of DATA_PROVIDER: drop any
+        # sample-projected "earnings" entry for a ticker Finnhub actually
+        # confirmed, and use the real one instead. Every other catalyst kind
+        # (news/upgrade/trial/FDA) for that ticker is untouched.
+        real_earnings = await fetch_earnings_calendar(set(tickers))
+        if real_earnings:
+            confirmed_tickers = {c.ticker for c in real_earnings}
+            cats = [c for c in cats
+                    if not (c.kind == "earnings" and c.ticker in confirmed_tickers)]
+            cats.extend(real_earnings)
+
         id_by_ticker = {s.ticker: s.id for s in symbols}
         await session.execute(delete(Catalyst).where(Catalyst.created_at >= today_start))
         session.add_all([
             Catalyst(symbol_id=id_by_ticker[c.ticker], kind=c.kind, headline=c.headline,
-                     sentiment=c.sentiment, event_date=c.event_date)
+                     sentiment=c.sentiment, event_date=c.event_date, verified=c.verified)
             for c in cats if c.ticker in id_by_ticker
         ])
         await session.commit()
@@ -267,6 +281,7 @@ async def refresh_catalysts(
             out.setdefault(ticker, []).append(CatalystInfo(
                 ticker=ticker, kind=cat.kind, headline=cat.headline,
                 sentiment=cat.sentiment, event_date=_as_utc(cat.event_date),
+                verified=cat.verified,
             ))
     return out
 

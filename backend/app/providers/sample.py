@@ -238,8 +238,9 @@ class SampleProvider(MarketDataProvider):
             if seed % 7 == 0:
                 out.append(CatalystInfo(
                     ticker=ticker, kind="earnings",
-                    headline=f"{ticker} reports earnings in {seed % 10 + 1} days",
-                    event_date=now + timedelta(days=seed % 10 + 1)))
+                    headline=f"{ticker} earnings projected in ~{seed % 10 + 1} days "
+                             f"(no confirmed calendar date)",
+                    event_date=now + timedelta(days=seed % 10 + 1), verified=False))
             if seed % 5 == 1:
                 out.append(CatalystInfo(
                     ticker=ticker, kind="upgrade", sentiment=0.6,
@@ -256,8 +257,9 @@ class SampleProvider(MarketDataProvider):
                 kind, label, days = pending
                 out.append(CatalystInfo(
                     ticker=ticker, kind=kind,
-                    headline=f"{ticker} {label} expected in {days} days — outcome unknown",
-                    event_date=now + timedelta(days=days)))
+                    headline=f"{ticker} {label} projected in ~{days} days "
+                             f"(simulated — outcome and date both unconfirmed)",
+                    event_date=now + timedelta(days=days), verified=False))
         return out
 
     async def fetch_short_interest(self, tickers: list[str]) -> list[ShortInterestInfo]:

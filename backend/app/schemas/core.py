@@ -115,6 +115,7 @@ class ExplosiveRow(BaseModel):
     catalyst_kind: str
     catalyst_headline: str
     catalyst_date: str | None = None
+    catalyst_verified: bool = False
     days_to_catalyst: int | None = None
     short_pct_float: float | None = None
     days_to_cover: float | None = None

@@ -48,6 +48,10 @@ class CatalystInfo:
     headline: str = ""
     sentiment: float | None = None  # -1 .. 1
     event_date: datetime | None = None
+    # True only when `event_date` is confirmed by a real calendar source
+    # (e.g. Finnhub earnings calendar). False = deterministic sample
+    # placeholder — always label it as projected, never present it as fact.
+    verified: bool = False
 
 
 @dataclass(slots=True)

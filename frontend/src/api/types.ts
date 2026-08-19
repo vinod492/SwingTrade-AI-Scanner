@@ -60,7 +60,10 @@ export interface SymbolDetail {
   market_cap: number | null;
   float_shares: number | null;
   row: ScannerRow | null;
-  catalysts: { kind: string; headline: string; sentiment: number | null; event_date: string | null }[];
+  catalysts: {
+    kind: string; headline: string; sentiment: number | null;
+    event_date: string | null; verified: boolean;
+  }[];
 }
 
 export interface AIAnalysis {
@@ -185,6 +188,7 @@ export interface ExplosiveRow {
   catalyst_kind: string;
   catalyst_headline: string;
   catalyst_date: string | null;
+  catalyst_verified: boolean;
   days_to_catalyst: number | null;
   short_pct_float: number | null;
   days_to_cover: number | null;

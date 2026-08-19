@@ -60,6 +60,7 @@ async def _rows_from_db(session: AsyncSession) -> list[dict]:
             "float_pts": sig.float_pts, "iv_pts": sig.iv_pts, "volume_pts": sig.volume_pts,
             "catalyst_kind": sig.catalyst_kind, "catalyst_headline": sig.catalyst_headline,
             "catalyst_date": catalyst_date.isoformat() if catalyst_date else None,
+            "catalyst_verified": sig.catalyst_verified,
             "days_to_catalyst": max(0, (catalyst_date - now).days) if catalyst_date else None,
             "short_pct_float": si.short_pct_float if si else None,
             "days_to_cover": si.days_to_cover if si else None,

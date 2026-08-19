@@ -33,6 +33,7 @@ class ExplosiveBreakdown:
     catalyst_kind: str = ""
     catalyst_headline: str = ""
     catalyst_date: datetime | None = None
+    catalyst_verified: bool = False
     days_to_catalyst: int | None = None
     reasons: list[str] = field(default_factory=list)
 
@@ -81,6 +82,7 @@ def score_explosive(
         bd.catalyst_kind = nearest.kind
         bd.catalyst_headline = nearest.headline
         bd.catalyst_date = nearest.event_date
+        bd.catalyst_verified = getattr(nearest, "verified", False)
         bd.days_to_catalyst = days
         if days <= 3:
             bd.catalyst = 30
@@ -93,7 +95,8 @@ def score_explosive(
         else:
             bd.catalyst = 5
         label = CATALYST_LABELS.get(nearest.kind, nearest.kind)
-        note(f"{label} in {days} day{'s' if days != 1 else ''} — outcome unknown")
+        confidence = "confirmed date" if bd.catalyst_verified else "projected date, unconfirmed"
+        note(f"{label} in {days} day{'s' if days != 1 else ''} ({confidence}) — outcome unknown")
 
     # ── Short squeeze setup (max 25) ────────────────────────────────────
     if short_pct_float is not None:

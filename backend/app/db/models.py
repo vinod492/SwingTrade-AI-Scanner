@@ -180,6 +180,10 @@ class Catalyst(Base):
     headline: Mapped[str] = mapped_column(Text, default="")
     sentiment: Mapped[float | None] = mapped_column(Float)  # -1 .. 1
     event_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # True only for dates confirmed by a real calendar source (e.g. Finnhub
+    # earnings calendar). False means a deterministic sample-generator
+    # placeholder — must always be labeled as projected, never shown as fact.
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -221,6 +225,7 @@ class ExplosiveSignal(Base):
     catalyst_kind: Mapped[str] = mapped_column(String(24), default="")
     catalyst_headline: Mapped[str] = mapped_column(Text, default="")
     catalyst_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    catalyst_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     reasons: Mapped[list] = mapped_column(JSON, default=list)
 
 

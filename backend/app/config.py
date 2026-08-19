@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     ai_cache_ttl_seconds: int = 3600
 
+    # Real earnings-calendar dates for Catalyst Radar (free tier: finnhub.io).
+    # Independent of DATA_PROVIDER. Empty = every earnings date shown is a
+    # projected placeholder, honestly labeled as such — never silently real.
+    finnhub_api_key: str = ""
+
     @field_validator("database_url")
     @classmethod
     def _normalize_db_url(cls, v: str) -> str:
