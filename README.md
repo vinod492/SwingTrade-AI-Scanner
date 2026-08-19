@@ -21,6 +21,7 @@ backtester, watchlists with P/L tracking, and user accounts.
 | **Market Scanner** — ranked table: price, day %, volume, relative volume, ATR %, RSI, trend, Swing Score, entry/stop/target, R/R; filter by score, sector, RelVol; sortable; live-updating | `/` |
 | **Trade Ideas** — top setups as cards in spec format (setup label, entry zone, stop, target, risk %, reward %, score) | `/ideas` |
 | **Idea detail** — TradingView-style candlestick chart (lightweight-charts) with EMA 20/50/200 + Bollinger overlays, entry/stop/target price lines, score component breakdown, catalysts, on-demand AI analysis | `/idea/NVDA` |
+| **Catalyst Radar** — flags stocks with elevated *move-magnitude* potential: a pending binary catalyst (earnings/FDA/trial readout) plus crowded positioning (short interest, thin float, elevated IV, building volume). Not directional — see below | `/radar` |
 | **Alerts** — top-20 entry, RelVol > 3x, breakout, RSI crosses 50, unusual options; per-user toggles, event feed, live WebSocket toasts | `/alerts` |
 | **Backtesting** — entry rules (min score, min RelVol, above EMA, RSI band) and exits (stop %, target %, max hold); win rate, avg return, max drawdown, Sharpe, equity curve, full trade list | `/backtest` |
 | **Watchlist** — track tickers, entries, shares, live P/L | `/watchlist` |
@@ -131,6 +132,43 @@ Settings (encrypted with Fernet; overrides the server key for their analyses).
 Trade plan: entry at the breakout trigger (or current zone), stop at 1.5×ATR below entry
 (widened to structural support only within a 15% risk budget), target at the greater of
 2.5×ATR and 2× the risk distance — so R/R is always ≥ 2:1.
+
+## Catalyst Radar — "what could be the next MRNA?"
+
+On 2026-08-19 Moderna (MRNA) gained 90%+ in a single session on positive Phase 3 melanoma
+trial data. That move is not predictable — the trial outcome was genuinely unknown until
+the data unblinded, and no technical indicator or options flow tells you in advance whether
+a binary readout succeeds. Anything claiming otherwise is not being honest about what market
+data can and can't do.
+
+What *is* legitimately researchable is the **setup** that makes an outsized move — in either
+direction — more likely on the day a known event lands: a scheduled catalyst plus crowded
+positioning. Catalyst Radar (`/radar`) scores that setup, 0–100, and is explicit that it
+ranks move *magnitude*, not *direction*:
+
+| Component | Max | Criteria |
+|---|---|---|
+| Catalyst proximity | 30 | nearest scheduled earnings/FDA-decision/trial-readout date, scaled by days away (≤3d = 30 · ≤7d = 25 · ≤14d = 18 · ≤30d = 10 · ≤45d = 5) |
+| Short squeeze setup | 25 | short % of float (≥30% = 18 · ≥20% = 13 · ≥10% = 6) + days-to-cover bonus (+7) when both are elevated |
+| Float amplifier | 15 | float < 30M shares = 15 · < 75M = 10 · < 150M = 5 |
+| Options / IV positioning | 20 | IV rank (percentile vs. trailing history) scaled to 14 pts + rising IV (+6) |
+| Pre-event volume | 10 | RelVol ≥ 1.5x (5) + relative volume trending up over recent sessions (5) |
+
+A row only needs *a* pending catalyst to appear, not necessarily all five components —
+some rows are flagged purely on crowded short-interest/float positioning with no dated
+event. Rows below a 15-point floor aren't shown; "elevated move potential" needs to mean
+something.
+
+**Data honesty note:** real short-interest data (FINRA, bi-monthly) and forward-dated
+FDA/trial-readout calendars aren't available from any provider this app currently
+integrates (Massive's free tier has neither). Catalyst Radar runs entirely on the
+**sample provider's deterministic synthetic data** for these two inputs regardless of
+`DATA_PROVIDER` — earnings dates and short interest are synthesized the same way even in
+live-price mode, and biotech-style trial/FDA events are only assigned to Healthcare-sector
+tickers so the demo stays plausible. Wiring a real short-interest feed (e.g. Ortex) or a
+forward earnings-calendar API is future work; the scoring engine and UI are already built
+for it — only `providers/polygon.py`'s `fetch_short_interest`/`fetch_catalysts` would need
+real implementations.
 
 ## Backtester assumptions
 

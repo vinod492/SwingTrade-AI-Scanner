@@ -99,6 +99,36 @@ class SymbolDetail(BaseModel):
     catalysts: list[dict] = []
 
 
+# ── Catalyst Radar (explosive-move potential) ───────────────────────────────
+class ExplosiveRow(BaseModel):
+    rank: int
+    symbol_id: int
+    ticker: str
+    name: str
+    sector: str
+    explosive_score: float
+    catalyst_pts: float
+    squeeze_pts: float
+    float_pts: float
+    iv_pts: float
+    volume_pts: float
+    catalyst_kind: str
+    catalyst_headline: str
+    catalyst_date: str | None = None
+    days_to_catalyst: int | None = None
+    short_pct_float: float | None = None
+    days_to_cover: float | None = None
+    iv_rank: float | None = None
+    float_shares: float | None = None
+    rel_volume: float | None = None
+    reasons: list[str] = []
+
+
+class ExplosiveResponse(BaseModel):
+    total: int
+    rows: list[ExplosiveRow]
+
+
 # ── AI ──────────────────────────────────────────────────────────────────────
 class AIAnalysis(BaseModel):
     ticker: str

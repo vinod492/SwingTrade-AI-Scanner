@@ -183,6 +183,47 @@ class Catalyst(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class ShortInterest(Base):
+    """Latest short-interest snapshot per symbol (mirrors Snapshot). Real
+    short-interest data is reported bi-monthly (FINRA) — refreshed at most
+    once/day even in live mode; see workers/ingestion.refresh_short_interest."""
+
+    __tablename__ = "short_interest"
+
+    symbol_id: Mapped[int] = mapped_column(ForeignKey("symbols.id", ondelete="CASCADE"), primary_key=True)
+    short_pct_float: Mapped[float | None] = mapped_column(Float)
+    days_to_cover: Mapped[float | None] = mapped_column(Float)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class ExplosiveSignal(Base):
+    """Move-magnitude potential ('Catalyst Radar') — separate from the
+    directional Swing Score. Flags stocks with a pending binary catalyst
+    (earnings/trial/FDA) plus crowded positioning (short interest, small
+    float, elevated IV, building volume) where an outsized move — in either
+    direction — is more likely than usual. Not a directional signal."""
+
+    __tablename__ = "explosive_signals"
+    __table_args__ = (
+        UniqueConstraint("symbol_id", "ts"),
+        Index("ix_explosive_lookup", "ts", "explosive_score"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    symbol_id: Mapped[int] = mapped_column(ForeignKey("symbols.id", ondelete="CASCADE"), index=True)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    explosive_score: Mapped[float] = mapped_column(Float)
+    catalyst_pts: Mapped[float] = mapped_column(Float, default=0)
+    squeeze_pts: Mapped[float] = mapped_column(Float, default=0)
+    float_pts: Mapped[float] = mapped_column(Float, default=0)
+    iv_pts: Mapped[float] = mapped_column(Float, default=0)
+    volume_pts: Mapped[float] = mapped_column(Float, default=0)
+    catalyst_kind: Mapped[str] = mapped_column(String(24), default="")
+    catalyst_headline: Mapped[str] = mapped_column(Text, default="")
+    catalyst_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reasons: Mapped[list] = mapped_column(JSON, default=list)
+
+
 class AlertRule(Base):
     __tablename__ = "alert_rules"
 

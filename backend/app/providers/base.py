@@ -44,10 +44,17 @@ class OptionsInfo:
 @dataclass(slots=True)
 class CatalystInfo:
     ticker: str
-    kind: str  # earnings | upgrade | news
+    kind: str  # earnings | upgrade | news | trial_readout | fda_decision
     headline: str = ""
     sentiment: float | None = None  # -1 .. 1
     event_date: datetime | None = None
+
+
+@dataclass(slots=True)
+class ShortInterestInfo:
+    ticker: str
+    short_pct_float: float | None = None  # 0-100
+    days_to_cover: float | None = None
 
 
 @dataclass(slots=True)
@@ -80,6 +87,9 @@ class MarketDataProvider(ABC):
         return []
 
     async def fetch_catalysts(self, tickers: list[str]) -> list[CatalystInfo]:
+        return []
+
+    async def fetch_short_interest(self, tickers: list[str]) -> list[ShortInterestInfo]:
         return []
 
     async def close(self) -> None:

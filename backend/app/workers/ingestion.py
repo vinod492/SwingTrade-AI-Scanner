@@ -15,8 +15,15 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.db.models import Candle, Catalyst, OptionsActivity, Snapshot, Symbol
-from app.providers.base import Capabilities, CatalystInfo, MarketDataProvider, OptionsInfo, Quote
+from app.db.models import Candle, Catalyst, OptionsActivity, ShortInterest, Snapshot, Symbol
+from app.providers.base import (
+    Capabilities,
+    CatalystInfo,
+    MarketDataProvider,
+    OptionsInfo,
+    Quote,
+    ShortInterestInfo,
+)
 
 log = logging.getLogger(__name__)
 
@@ -261,4 +268,61 @@ async def refresh_catalysts(
                 ticker=ticker, kind=cat.kind, headline=cat.headline,
                 sentiment=cat.sentiment, event_date=_as_utc(cat.event_date),
             ))
+    return out
+
+
+async def refresh_short_interest(
+    session: AsyncSession,
+    provider: MarketDataProvider,
+    sample: MarketDataProvider,
+    symbols: list[Symbol],
+) -> dict[str, ShortInterestInfo]:
+    """Short interest — refreshed at most once/day (real short-interest data
+    is only reported bi-monthly by FINRA, so there's no reason to hammer it
+    every scan cycle). Falls back to the sample generator for any ticker the
+    active provider doesn't cover (i.e. almost always, on free tiers)."""
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    id_by_ticker = {s.ticker: s.id for s in symbols}
+
+    fresh_ids = {r for r, in (await session.execute(
+        select(ShortInterest.symbol_id).where(
+            ShortInterest.symbol_id.in_(id_by_ticker.values()),
+            ShortInterest.updated_at >= today_start,
+        )
+    )).all()}
+    stale = [s for s in symbols if s.id not in fresh_ids]
+    if stale:
+        live = {i.ticker: i for i in await provider.fetch_short_interest([s.ticker for s in stale])}
+        rest = [s.ticker for s in stale if s.ticker not in live]
+        synth = {i.ticker: i for i in await sample.fetch_short_interest(rest)}
+        merged = {**synth, **live}
+
+        now = datetime.now(timezone.utc)
+        existing = {r.symbol_id: r for r in (await session.execute(
+            select(ShortInterest).where(ShortInterest.symbol_id.in_(id_by_ticker.values()))
+        )).scalars()}
+        for ticker, info in merged.items():
+            sid = id_by_ticker.get(ticker)
+            if sid is None:
+                continue
+            row = existing.get(sid)
+            if row is None:
+                row = ShortInterest(symbol_id=sid)
+                session.add(row)
+            row.short_pct_float = info.short_pct_float
+            row.days_to_cover = info.days_to_cover
+            row.updated_at = now
+        await session.commit()
+
+    ticker_by_id = {v: k for k, v in id_by_ticker.items()}
+    out: dict[str, ShortInterestInfo] = {}
+    for row in (await session.execute(
+        select(ShortInterest).where(ShortInterest.symbol_id.in_(id_by_ticker.values()))
+    )).scalars():
+        ticker = ticker_by_id.get(row.symbol_id)
+        if ticker:
+            out[ticker] = ShortInterestInfo(
+                ticker=ticker, short_pct_float=row.short_pct_float,
+                days_to_cover=row.days_to_cover,
+            )
     return out

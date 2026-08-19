@@ -11,7 +11,18 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import ai, alerts, auth, backtests, ideas, scanner, symbols, user_settings, watchlist
+from app.api import (
+    ai,
+    alerts,
+    auth,
+    backtests,
+    explosive,
+    ideas,
+    scanner,
+    symbols,
+    user_settings,
+    watchlist,
+)
 from app.config import get_settings
 from app.db.seed import bootstrap
 from app.ws import hub
@@ -49,7 +60,8 @@ app.add_middleware(
 
 API = "/api/v1"
 for router in (auth.router, scanner.router, symbols.router, ideas.router, ai.router,
-               alerts.router, watchlist.router, backtests.router, user_settings.router):
+               alerts.router, watchlist.router, backtests.router, user_settings.router,
+               explosive.router):
     app.include_router(router, prefix=API)
 
 

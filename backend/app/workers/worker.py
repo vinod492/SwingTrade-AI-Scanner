@@ -16,6 +16,7 @@ from app.providers.base import get_market_provider
 from app.providers.sample import SampleProvider
 from app.services.cache import cache_get_json
 from app.workers import ingestion
+from app.workers.explosive_job import compute_and_store_explosive
 from app.workers.scoring_job import (
     SCANNER_KEY,
     compute_and_store_scores,
@@ -51,13 +52,19 @@ async def run_scan_cycle(ctx: dict) -> str:
             session, provider, sample, symbols, caps, priority)
         catalysts_map = await ingestion.refresh_catalysts(
             session, provider, sample, symbols, caps, priority)
+        short_interest_map = await ingestion.refresh_short_interest(
+            session, provider, sample, symbols)
 
         rows = await compute_and_store_scores(session, symbols, quotes, options_map,
                                               catalysts_map)
         await publish_scores(session, rows)
 
+        explosive_rows = await compute_and_store_explosive(
+            session, symbols, catalysts_map, short_interest_map)
+
     summary = (f"scored {len(rows)}/{len(symbols)} symbols "
-               f"(backfilled {backfilled}, provider={provider.name}"
+               f"({len(explosive_rows)} on catalyst radar; "
+               f"backfilled {backfilled}, provider={provider.name}"
                f"{', EOD' if caps.eod_only else ''})")
     log.info(summary)
     return summary

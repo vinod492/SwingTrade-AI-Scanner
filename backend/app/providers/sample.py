@@ -22,10 +22,12 @@ from app.providers.base import (
     MarketDataProvider,
     OptionsInfo,
     Quote,
+    ShortInterestInfo,
 )
 from app.db.universe import UNIVERSE
 
 _FLOAT_BY_TICKER = {t: fl * 1e9 for t, _, _, _, fl in UNIVERSE}
+_HEALTHCARE_TICKERS = {t for t, _, sector, _, _ in UNIVERSE if sector == "Healthcare"}
 
 # Regimes: (daily drift, breakout tail in last ~10 days)
 _REGIMES = [
@@ -109,6 +111,40 @@ def generate_daily_frame(ticker: str, days: int, end: datetime | None = None) ->
     end = end or datetime.now(timezone.utc)
     end_key = trading_days(end, 1)[-1].strftime("%Y-%m-%d")
     return _full_frame(ticker, end_key).tail(min(days, _CANONICAL_DAYS))
+
+
+def _short_interest(ticker: str) -> tuple[float, float]:
+    """Deterministic (short % of float, days-to-cover). Most tickers are
+    lightly shorted; a seeded minority sit in squeeze-candidate territory."""
+    seed = _seed(ticker)
+    bucket = seed % 20
+    if bucket == 0:
+        pct = 25.0 + (seed % 20)   # 1 in 20: heavily shorted, 25-45%
+    elif bucket < 4:
+        pct = 12.0 + (seed % 10)   # 3 in 20: moderate, 12-22%
+    else:
+        pct = 1.0 + (seed % 8)     # rest: light, 1-9%
+    dtc = round(1.0 + (seed % 12) / 2, 1)
+    if pct > 20:
+        dtc = round(dtc + 2, 1)    # crowded shorts take longer to unwind
+    return round(pct, 1), dtc
+
+
+def _pending_binary_catalyst(ticker: str) -> tuple[str, str, int] | None:
+    """Deterministically gives a minority of Healthcare-sector tickers a
+    scheduled binary event (clinical trial readout / FDA decision) somewhere
+    in the next 1-45 days — the kind of dated, outcome-unknown catalyst that
+    can produce an MRNA-style gap. Restricted to Healthcare so the story
+    stays plausible (a "Phase 3 trial" for a bank or airline would be silly).
+    Returns (kind, label, days_until) or None."""
+    if ticker not in _HEALTHCARE_TICKERS:
+        return None
+    seed = _seed(ticker)
+    if seed % 5 == 0:
+        return ("trial_readout", "Phase 3 trial readout", 3 + seed % 40)
+    if seed % 7 == 0:
+        return ("fda_decision", "FDA decision (PDUFA date)", 5 + seed % 35)
+    return None
 
 
 def _intraday_state(ticker: str, now: datetime) -> tuple[float, float, float]:
@@ -215,4 +251,18 @@ class SampleProvider(MarketDataProvider):
                     ticker=ticker, kind="news", sentiment=sentiment,
                     headline=f"{ticker} in focus as sector momentum builds",
                     event_date=now))
+            pending = _pending_binary_catalyst(ticker)
+            if pending:
+                kind, label, days = pending
+                out.append(CatalystInfo(
+                    ticker=ticker, kind=kind,
+                    headline=f"{ticker} {label} expected in {days} days — outcome unknown",
+                    event_date=now + timedelta(days=days)))
+        return out
+
+    async def fetch_short_interest(self, tickers: list[str]) -> list[ShortInterestInfo]:
+        out = []
+        for ticker in tickers:
+            pct, dtc = _short_interest(ticker)
+            out.append(ShortInterestInfo(ticker=ticker, short_pct_float=pct, days_to_cover=dtc))
         return out

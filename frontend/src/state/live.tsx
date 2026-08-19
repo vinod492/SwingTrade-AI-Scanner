@@ -77,6 +77,8 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
         } else if (event.type === "backtest_done") {
           qc.invalidateQueries({ queryKey: ["backtests"] });
           qc.invalidateQueries({ queryKey: ["backtest"] });
+        } else if (event.type === "explosive") {
+          qc.invalidateQueries({ queryKey: ["explosive"] });
         }
       };
     };

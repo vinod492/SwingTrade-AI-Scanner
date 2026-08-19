@@ -170,7 +170,37 @@ export interface User {
   created_at: string;
 }
 
+export interface ExplosiveRow {
+  rank: number;
+  symbol_id: number;
+  ticker: string;
+  name: string;
+  sector: string;
+  explosive_score: number;
+  catalyst_pts: number;
+  squeeze_pts: number;
+  float_pts: number;
+  iv_pts: number;
+  volume_pts: number;
+  catalyst_kind: string;
+  catalyst_headline: string;
+  catalyst_date: string | null;
+  days_to_catalyst: number | null;
+  short_pct_float: number | null;
+  days_to_cover: number | null;
+  iv_rank: number | null;
+  float_shares: number | null;
+  rel_volume: number | null;
+  reasons: string[];
+}
+
+export interface ExplosiveResponse {
+  total: number;
+  rows: ExplosiveRow[];
+}
+
 export type WsEvent =
   | { type: "scanner"; payload: { count: number; top: ScannerRow[] } }
   | { type: "alert"; payload: { ticker: string; rule_type: string; message: string; user_id: number; triggered_at: string } }
-  | { type: "backtest_done"; payload: { id: number; name: string; user_id: number } };
+  | { type: "backtest_done"; payload: { id: number; name: string; user_id: number } }
+  | { type: "explosive"; payload: { count: number; top: ExplosiveRow[] } };

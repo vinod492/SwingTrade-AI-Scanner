@@ -8,6 +8,7 @@ import Layout from "./components/Layout";
 import AlertsPage from "./pages/AlertsPage";
 import BacktestPage from "./pages/BacktestPage";
 import DashboardPage from "./pages/DashboardPage";
+import ExplosiveRadarPage from "./pages/ExplosiveRadarPage";
 import IdeaDetailPage from "./pages/IdeaDetailPage";
 import IdeasPage from "./pages/IdeasPage";
 import LoginPage from "./pages/LoginPage";
@@ -31,6 +32,7 @@ createRoot(document.getElementById("root")!).render(
               <Route element={<Layout />}>
                 <Route index element={<ScannerPage />} />
                 <Route path="ideas" element={<IdeasPage />} />
+                <Route path="radar" element={<ExplosiveRadarPage />} />
                 <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="idea/:ticker" element={<IdeaDetailPage />} />
                 <Route path="alerts" element={<AlertsPage />} />

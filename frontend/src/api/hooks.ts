@@ -8,6 +8,7 @@ import type {
   Backtest,
   BacktestParams,
   Candle,
+  ExplosiveResponse,
   ScannerResponse,
   SymbolDetail,
   User,
@@ -64,6 +65,21 @@ export const useAnalyze = (ticker: string) =>
 
 export const useMe = (enabled: boolean) =>
   useQuery({ queryKey: ["me"], queryFn: () => api<User>("/auth/me"), enabled, retry: false });
+
+// ── catalyst radar ─────────────────────────────────────────────────────────
+export interface ExplosiveFilters {
+  min_score?: number | "";
+  kind?: string;
+  max_days?: number | "";
+}
+
+export const useExplosive = (filters: ExplosiveFilters = {}) =>
+  useQuery({
+    queryKey: ["explosive", filters],
+    queryFn: () => api<ExplosiveResponse>("/explosive", { params: { ...filters } }),
+    refetchInterval: 30_000,
+    placeholderData: (prev) => prev,
+  });
 
 // ── alerts ─────────────────────────────────────────────────────────────────
 export const useAlertRules = () =>
