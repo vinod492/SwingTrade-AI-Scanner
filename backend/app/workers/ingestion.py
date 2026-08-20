@@ -250,15 +250,17 @@ async def refresh_catalysts(
         else:
             cats.extend(await sample.fetch_catalysts(tickers))
 
-        # Real earnings dates, independent of DATA_PROVIDER: drop any
-        # sample-projected "earnings" entry for a ticker Finnhub actually
-        # confirmed, and use the real one instead. Every other catalyst kind
-        # (news/upgrade/trial/FDA) for that ticker is untouched.
-        real_earnings = await fetch_earnings_calendar(set(tickers))
-        if real_earnings:
-            confirmed_tickers = {c.ticker for c in real_earnings}
-            cats = [c for c in cats
-                    if not (c.kind == "earnings" and c.ticker in confirmed_tickers)]
+        # Real earnings dates, independent of DATA_PROVIDER: a successful
+        # Finnhub call covers every ticker in the lookahead window, so it's
+        # authoritative even for tickers absent from the response (that
+        # means "nothing real due soon", not "unknown") — drop every
+        # sample-projected "earnings" entry and replace with the real ones.
+        # Every other catalyst kind (news/upgrade/trial/FDA) is untouched.
+        # Only fall back to the sample projection when the call itself
+        # failed (no key / request error), per fetch_earnings_calendar's ok flag.
+        real_earnings, real_ok = await fetch_earnings_calendar(set(tickers))
+        if real_ok:
+            cats = [c for c in cats if c.kind != "earnings"]
             cats.extend(real_earnings)
 
         id_by_ticker = {s.ticker: s.id for s in symbols}

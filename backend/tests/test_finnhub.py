@@ -1,5 +1,7 @@
 """Finnhub earnings-calendar adapter: must never raise, must never fabricate
-a 'verified' date, and must ignore tickers/rows outside what was asked for."""
+a 'verified' date, must ignore tickers/rows outside what was asked for, and
+must distinguish a successful-but-empty result from a failed lookup via the
+`ok` flag."""
 import httpx
 import pytest
 
@@ -15,10 +17,16 @@ def _clear_settings_cache():
 
 
 class TestNoKeyConfigured:
-    async def test_returns_empty_without_raising(self, monkeypatch):
-        monkeypatch.delenv("FINNHUB_API_KEY", raising=False)
-        result = await fetch_earnings_calendar({"AAPL", "MSFT"})
+    async def test_returns_empty_and_not_ok_without_raising(self, monkeypatch):
+        # setenv to "", not delenv: Settings reads FINNHUB_API_KEY from the
+        # repo's real .env file too, and env_file is only a fallback for
+        # keys absent from os.environ — delenv leaves that fallback in play
+        # whenever a real key is configured on disk, silently making this a
+        # live network call instead of exercising the no-key path.
+        monkeypatch.setenv("FINNHUB_API_KEY", "")
+        result, ok = await fetch_earnings_calendar({"AAPL", "MSFT"})
         assert result == []
+        assert ok is False
 
 
 class TestWithKeyConfigured:
@@ -37,8 +45,9 @@ class TestWithKeyConfigured:
             return httpx.Response(200, json=payload, request=httpx.Request("GET", url))
 
         monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
-        result = await fetch_earnings_calendar({"AAPL", "MSFT"})
+        result, ok = await fetch_earnings_calendar({"AAPL", "MSFT"})
 
+        assert ok is True
         assert {c.ticker for c in result} == {"AAPL", "MSFT"}
         assert all(c.verified for c in result)
         assert all(c.kind == "earnings" for c in result)
@@ -46,33 +55,41 @@ class TestWithKeyConfigured:
         assert "before market open" in aapl.headline
         assert "confirmed" in aapl.headline.lower()
 
-    async def test_rows_missing_date_are_skipped(self, monkeypatch):
+    async def test_rows_missing_date_are_skipped_but_call_is_ok(self, monkeypatch):
         payload = {"earningsCalendar": [{"symbol": "AAPL", "date": None}]}
 
         async def fake_get(self, url, params=None, **kwargs):
             return httpx.Response(200, json=payload, request=httpx.Request("GET", url))
 
         monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
-        assert await fetch_earnings_calendar({"AAPL"}) == []
+        result, ok = await fetch_earnings_calendar({"AAPL"})
+        assert result == []
+        assert ok is True
 
-    async def test_non_200_returns_empty(self, monkeypatch):
+    async def test_non_200_returns_empty_and_not_ok(self, monkeypatch):
         async def fake_get(self, url, params=None, **kwargs):
             return httpx.Response(429, text="rate limited", request=httpx.Request("GET", url))
 
         monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
-        assert await fetch_earnings_calendar({"AAPL"}) == []
+        result, ok = await fetch_earnings_calendar({"AAPL"})
+        assert result == []
+        assert ok is False
 
-    async def test_network_error_returns_empty(self, monkeypatch):
+    async def test_network_error_returns_empty_and_not_ok(self, monkeypatch):
         async def fake_get(self, url, params=None, **kwargs):
             raise httpx.ConnectError("boom", request=httpx.Request("GET", url))
 
         monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
-        assert await fetch_earnings_calendar({"AAPL"}) == []
+        result, ok = await fetch_earnings_calendar({"AAPL"})
+        assert result == []
+        assert ok is False
 
-    async def test_malformed_json_returns_empty(self, monkeypatch):
+    async def test_malformed_json_returns_empty_and_not_ok(self, monkeypatch):
         async def fake_get(self, url, params=None, **kwargs):
             return httpx.Response(200, content=b"not json",
                                   request=httpx.Request("GET", url))
 
         monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
-        assert await fetch_earnings_calendar({"AAPL"}) == []
+        result, ok = await fetch_earnings_calendar({"AAPL"})
+        assert result == []
+        assert ok is False
