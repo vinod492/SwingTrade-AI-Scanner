@@ -239,7 +239,7 @@ async def refresh_catalysts(
         select(func.count(Catalyst.id)).where(Catalyst.created_at >= today_start)
     )).scalar()
     if not already:
-        from app.providers.finnhub import fetch_earnings_calendar
+        from app.providers.finnhub import fetch_earnings_calendar, fetch_fda_calendar
 
         tickers = [s.ticker for s in symbols]
         cats: list[CatalystInfo] = []
@@ -262,6 +262,20 @@ async def refresh_catalysts(
         if real_ok:
             cats = [c for c in cats if c.kind != "earnings"]
             cats.extend(real_earnings)
+
+        # Real FDA advisory-committee meetings, matched to tickers by
+        # company name — see fetch_fda_calendar's docstring for why this is
+        # NOT exhaustive like earnings: only replace the sample "fda_decision"
+        # placeholder for a ticker that got an actual name match; every
+        # unmatched Healthcare ticker keeps its sample projection, since a
+        # miss here means "no committee meeting found", not "nothing pending".
+        healthcare_companies = {s.ticker: s.name for s in symbols if s.sector == "Healthcare"}
+        real_fda, fda_ok = await fetch_fda_calendar(healthcare_companies)
+        if fda_ok and real_fda:
+            matched_tickers = {c.ticker for c in real_fda}
+            cats = [c for c in cats
+                    if not (c.kind == "fda_decision" and c.ticker in matched_tickers)]
+            cats.extend(real_fda)
 
         id_by_ticker = {s.ticker: s.id for s in symbols}
         await session.execute(delete(Catalyst).where(Catalyst.created_at >= today_start))
